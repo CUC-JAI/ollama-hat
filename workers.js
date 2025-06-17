@@ -1,4 +1,4 @@
-const OLLAMA_BASE_URL = "https://ollama.tuna.pics";
+const OLLAMA_BASE_URL = "https://cuctunnel02beijing.tuna.pics";
 
 export default {
   async fetch(request) {
@@ -53,29 +53,24 @@ export default {
         body: JSON.stringify(reqBody),
       });
 
-      // 【修正点】处理 Ollama 返回的流式/多行 JSON（JSONL），只返回最后一行
+      // 修正：拼接所有 response 字段，防止只取最后一行为空
       const resText = await res.text();
       const lines = resText.trim().split('\n');
-      let lastJson = null;
-      try {
-        lastJson = JSON.parse(lines[lines.length - 1]);
-      } catch (e) {
-        // 解析失败，直接返回原始文本
-        return new Response(JSON.stringify({ error: "Ollama response parse error", raw: resText }), {
-          status: 500,
-          headers: { ...corsHeaders(), "Content-Type": "application/json" },
-        });
+      let answer = "";
+      for (const line of lines) {
+        try {
+          const j = JSON.parse(line);
+          if (typeof j.response === 'string') answer += j.response;
+        } catch(e) {}
       }
-      // 你可以根据你的需求只返回 response 字段
-      return new Response(JSON.stringify({
-        response: lastJson.response || lastJson.message || lastJson,
-      }), {
+      if (!answer.trim()) answer = "模型没有返回内容。";
+      return new Response(JSON.stringify({ response: answer }), {
         status: res.status,
         headers: { ...corsHeaders(), "Content-Type": "application/json" },
       });
     }
 
-    // HTML 界面
+    // HTML 交互界面
     if (pathname === "/" && request.method === "GET") {
       return new Response(indexHtml, {
         headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -100,13 +95,13 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-// 嵌入前端页面
+// 嵌入的前端页面
 const indexHtml = `
 <!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>Ollama Workers 交互界面</title>
+  <title>LLAMA Hat 交互界面</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: sans-serif; margin: 2em; }
@@ -118,7 +113,7 @@ const indexHtml = `
   </style>
 </head>
 <body>
-  <h2>Ollama Workers 交互界面</h2>
+  <h2>LLAMA Hat交互界面</h2>
   <form id="chatForm">
     <label for="modelSelect">选择模型：</label>
     <select id="modelSelect"></select><br>
@@ -185,7 +180,13 @@ const indexHtml = `
           body: formData
         });
         const data = await res.json();
-        document.getElementById('result').textContent = data.response || JSON.stringify(data, null, 2);
+        let show;
+        if (typeof data.response === "object") {
+          show = JSON.stringify(data.response, null, 2);
+        } else {
+          show = data.response || JSON.stringify(data, null, 2);
+        }
+        document.getElementById('result').textContent = show;
       } catch (err) {
         document.getElementById('result').textContent = "请求失败：" + err;
       }
