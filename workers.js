@@ -1,4 +1,4 @@
-const OLLAMA_BASE_URL = "https://cuctunnel02beijing.tuna.pics";
+const OLLAMA_BASE_URL = "https://ollama:11434";
 
 export default {
   async fetch(request) {
